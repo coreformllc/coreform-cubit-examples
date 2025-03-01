@@ -1,0 +1,159 @@
+## IMPORT CAD
+#!cubit
+reset
+cd "C:/Users/greg/Documents/Coreform/Webinars/Endurica_2025_02_26"
+import acis "Bushing_WOD_Cubit.sat" nofreesurfaces heal attributes_on  separate_bodies 
+
+## ASSIGN BLOCKS
+set duplicate block elements off
+block 1 add volume 1
+block 2 add volume 2
+block 3 add volume 3
+
+block 1 name "Bushing"
+block 2 name "Outer_Case"
+block 3 name "Inner_Core"
+
+## MESH BUSHING (BLOCK 1)
+volume 2 3 visibility off
+
+### Isolate single octant
+webcut volume 1  with plane normal to curve 54  close_to vertex 36  
+webcut volume 4  with plane normal to curve 188  fraction .5 from start 
+webcut volume 4  with plane normal to curve 141  fraction .5 from start 
+delete volume 1, 5, 6
+
+### Prepare complex fillet region
+project curve 22  onto surface 93  
+webcut volume 4  sweep curve 280  vector 0 -1 0 through_all 
+delete curve 280
+
+project curve 38  onto surface 133  
+create surface skin curve 38 292  
+delete curve 292
+
+create vertex on curve 283  close_to vertex 174  
+create curve vertex 171 175  
+create curve vertex 174 175  
+create surface curve 296 297 298  
+
+create vertex on curve 281  close_to vertex 173  
+create curve vertex 172 179  
+create curve vertex 179 173  
+create surface curve 294 301 300  
+
+unite volume 8 9 10  
+
+webcut Volume 4  tool Body 8  
+delete Body 8
+
+### Prepare the nub region
+webcut volume 7  with sheet extended from surface 79  
+webcut volume 12  with sheet extended from surface 101  
+create curve vertex 92 89  
+webcut volume 12  with loop curve 184 338  
+delete curve 338
+webcut volume 12 14 13  sweep surface 85  vector 0 -1 0 through_all 
+webcut volume 12 13 14 15 16 17 with plane normal to curve 349  fraction .5 from start 
+
+### Prepare the outer bushing
+create vertex on curve 195 132  midpoint 
+create vertex on curve 214 213  midpoint 
+create curve vertex 275 276  
+create vertex on curve 472  midpoint 
+create curve arc  three vertex 273 277 274  
+webcut volume 7  sweep curve 473  vector 0 -1 0 through_all 
+delete curve 472 473
+delete vertex 277
+
+### Prepare the inner region
+#!python
+import math
+import scipy
+
+def get_curvature_at_fraction( curve_id, fraction ):
+  curve = cubit.curve( curve_id )
+  curvature_components = curve.curvature( curve.position_from_fraction( fraction ) )
+  curvature = math.sqrt( curvature_components[0]**2 + curvature_components[1]**2 + curvature_components[2]**2 )
+  return curvature
+
+def maximize_curvature( curve_id, fraction ):
+  curvature = get_curvature_at_fraction( curve_id, fraction )
+  return -1 * curvature
+
+curve_id = 205
+fraction = scipy.optimize.minimize_scalar( lambda f: maximize_curvature( curve_id, f ), bounds=(0, 1) ).x
+xyz = cubit.curve( curve_id ).position_from_fraction( fraction )
+cubit.cmd( f"create vertex {xyz[0]} {xyz[1]} {xyz[2]} on curve {curve_id}" )
+
+#!cubit
+webcut volume 7  with plane normal to curve 265  close_to vertex 286
+delete vertex 286  
+webcut volume 25  with cylinder radius 27.5 axis y center 0 0 0  
+
+### Apply compositing
+#### Composite the complex fillet for hex-meshability
+composite create surface 151 152 150  keep angle 15 
+composite create surface 144 146 145  keep angle 15 
+
+#### Composite for hex-mesh quality
+composite create surface 259 279  keep angle 15 
+
+### Imprint & Merge
+imprint volume in block 1 
+merge volume in block 1 
+
+### Mesh Generation
+reset volume all
+
+### Mesh the complex fillet
+volume 11 size 0.25
+surface 155  scheme triprimitive 
+mesh surface 155 
+volume 11  redistribute nodes on 
+volume 11  scheme Sweep  source surface 155    target surface 153   sweep transform translate propagate bias  
+volume 11  autosmooth target on 
+mesh volume 11 
+set smooth tolerance 1e-2
+volume 11 smooth scheme laplacian free
+smooth volume 11
+set smooth tolerance 0.05
+
+volume 4  redistribute nodes on 
+volume 4  scheme Sweep  source surface 285    target surface 135   sweep transform translate propagate bias  
+volume 4  autosmooth target off 
+volume 4 size 0.5
+mesh volume 4 
+
+#### Mesh the nub
+volume 14 16 22 20 21 15 12 18 scheme auto
+volume 14 16 22 20 21 15 12 18 size 0.5
+mesh volume 14 16 22 20 21 15 12 18
+
+#### Mesh the rest of the bushing
+volume in block 1 except with is_meshed scheme auto 
+volume in block 1 except with is_meshed size 0.5
+mesh volume in block 1 except with is_meshed
+
+#### Recover the Full 3D model
+Volume in block 1 copy reflect x 
+block 1 vol all except in block 1 2 3
+Volume in block 1 copy reflect z 
+block 1 vol all except in block 1 2 3
+Volume in block 1 copy reflect vertex 484 485 
+block 1 vol all except in block 1 2 3
+merge volume in block 1
+
+## Mesh Outer Case (Block 2)
+volume all visibility on
+regularize volume 2  
+volume 2  redistribute nodes on 
+volume 2  scheme Sweep  source surface 35 34    target surface 38   sweep transform translate propagate bias  
+volume 2  autosmooth target off 
+volume 2 size 2
+mesh volume 2 
+
+## Mesh Inner Core (Block 3)
+regularize volume 3  
+volume 3 size 2
+mesh volume 3
