@@ -1,8 +1,8 @@
 ## Endurica Bushing
 This example accompanies a webinar hosted by Coreform and Endurica on Feb-26-2025 and an associated "deep-dive" demonstration -- both of which are available on YouTube.
 
-1. Coreform & Endurica webinar: 
-2. Deep-dive demonstration: 
+1. Coreform & Endurica webinar: [Link](https://www.youtube.com/watch?v=qW1udb9kNxo)
+2. Deep-dive demonstration: [Link](https://www.youtube.com/watch?v=YnkrZ8ZPhyg)
 
 The webinar provided an overview to the meshing process, including some tips and tricks, but is relatively high level in its discussion.
 The deep-dive demonstration builds upon the webinar and shows the actual process of building a quality hex mesh in Coreform Cubit.
